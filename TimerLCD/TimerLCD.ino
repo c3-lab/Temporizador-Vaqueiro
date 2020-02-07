@@ -3,9 +3,16 @@
 #include <PinChangeInterrupt.h>
 
 //----------- HARDWARE MAP
-#define BTN_RESET 2
-#define BTN_INIT_TIMER 19 //A5  ESP8266
-#define BTN_STOP_TIMER 3  //    SENSOR DE BARREIRA
+#define PIN_RESET 2
+#define PIN_INIT_TIMER 19 //A5 <- ESP8266
+
+#define PIN_US_TRIGGER 5
+#define PORTREG_US_TRIGGER PORTD
+#define BIT_US_TRIGGER PORTD5
+
+#define PIN_US_ECHO 3
+#define PINREG_US_ECHO PIND
+#define BIT_US_ECHO PIND3
 
 #define LCD_RW    "GND"
 #define LCD_RS    12
@@ -57,29 +64,37 @@ Functions numbers[] = {
 };
 
 //----------- Counter variables
-volatile int minutesValue = 0;
-volatile int secondsValue = 0;
-volatile int decimalValue = 0;
+volatile uint8_t minutesValue = 0;
+volatile uint8_t secondsValue = 0;
+volatile uint8_t decimalValue = 0;
 
 volatile bool countingEnabled = false;
 volatile bool startEnabled = false;
 
+//----------- Ultrasonic variables
+const uint8_t DISTANCE_THRESHOLD = 150;
+volatile unsigned long ultrasonicStartTime;
+volatile unsigned long ultrasonicDistance;
+volatile bool triggerEnabled = true;
+
+volatile uint8_t timerPrescaler = 0;
+
 
 void setup() {
 
-  // Initializes pins
+  // --- Initializes pins
   pinMode(8, INPUT);  // Gambiarra para resolver problema da placa
-  pinMode(BTN_RESET, INPUT_PULLUP);
-  pinMode(BTN_INIT_TIMER, INPUT);
-  pinMode(BTN_STOP_TIMER, INPUT);
+  pinMode(PIN_RESET, INPUT_PULLUP);
+  pinMode(PIN_INIT_TIMER, INPUT);
 
-  attachPinChangeInterrupt(digitalPinToPinChangeInterrupt(BTN_INIT_TIMER), initTimer, FALLING);
-  attachInterrupt(digitalPinToInterrupt(BTN_STOP_TIMER), stopTimer, FALLING);
+  pinMode(PIN_US_TRIGGER, OUTPUT);
+  digitalWrite(PIN_US_TRIGGER, LOW);
+  pinMode(PIN_US_ECHO, INPUT);
 
-  // attachInterrupt(digitalPinToInterrupt(BTN_INIT_TIMER), initTimer, FALLING);
-  // attachInterrupt(digitalPinToInterrupt(BTN_STOP_TIMER), stopTimer, FALLING);
+  attachPinChangeInterrupt(digitalPinToPinChangeInterrupt(PIN_INIT_TIMER), initTimer, FALLING);
+  attachInterrupt(digitalPinToInterrupt(PIN_US_ECHO), readUltrasonic, CHANGE);
 
-  // LCD Initialize
+  // --- LCD Initialize
   lcd.begin(16, 2);
   lcd.clear();
 
@@ -104,23 +119,103 @@ void setup() {
   lcd.setCursor(6, 1);
   lcd.print('.');
 
-  // Set Timer1 every 'INCREMENT' seconds
+  // --- Set Timer1 every 'INCREMENT' seconds
   Timer1.initialize(INCREMENT*1E6);
   Timer1.attachInterrupt(timerInterrupt);
+
+  // --- Timer2 setup
+  TCCR2A = 0x00;    // Timer2 in normal mode
+  TCCR2B = 0x07;    // Prescaler 1:1024
+  TCNT2 = 61;       // 12480us of overflow -> (256 - TCNT2) * Presc * 62.5E-9
+  TIMSK2 = 0x01;    // Enables interruption of Timer2
 }
+
 
 void loop() {
 
   // Activate the start of the count manually
-  if (!digitalRead(BTN_RESET)) {
+  if (!digitalRead(PIN_RESET)) {
     minutesValue = secondsValue = decimalValue = 0;
     startEnabled = true;
     countingEnabled = false;
-
-    updateStateInDisplay(true);
   }
 
   display();
+  updateStateInDisplay(startEnabled);
+}
+
+
+void timerInterrupt() {
+  if(!countingEnabled)
+    return;
+
+  decimalValue++;
+  secondsValue = decimalValue > 99 ? secondsValue+1 : secondsValue;
+  minutesValue = secondsValue > 59 ? minutesValue+1 : minutesValue;
+
+  if(decimalValue > 99) decimalValue = 0;
+  if(secondsValue > 59) secondsValue = 0;
+  if (minutesValue > 99) minutesValue = 0;
+}
+
+void initTimer(){
+  if(!countingEnabled && startEnabled){
+    minutesValue = secondsValue = decimalValue = 0;
+    countingEnabled = true;
+    startEnabled = false;
+  }
+}
+
+void stopTimer(){
+  countingEnabled = false;
+}
+
+ISR(TIMER2_OVF_vect){
+  TCNT2 = 61;
+
+  timerPrescaler++;
+
+  if(timerPrescaler >= 2){
+    if(triggerEnabled){
+      triggerUltrasonic();
+      timerPrescaler = 0;
+      triggerEnabled = false;
+    }
+
+  }
+
+}
+
+void triggerUltrasonic(){
+  bitSet(PORTREG_US_TRIGGER, BIT_US_TRIGGER);
+  delayMicroseconds(10);
+  bitClear(PORTREG_US_TRIGGER, BIT_US_TRIGGER);
+}
+
+void readUltrasonic(){
+  unsigned long now = micros();
+
+  if (bitRead(PINREG_US_ECHO, BIT_US_ECHO)){
+    ultrasonicStartTime = now;
+  }else{
+    ultrasonicDistance = (now - ultrasonicStartTime) / 58.309;
+
+    if (ultrasonicDistance <= DISTANCE_THRESHOLD && countingEnabled)
+      stopTimer();
+
+    triggerEnabled = true;
+  }
+}
+
+
+void updateStateInDisplay(bool isEnabled){
+  if (isEnabled){
+    lcd.setCursor(15, 0);
+    lcd.print("\"");
+  }else{
+    lcd.setCursor(15, 0);
+    lcd.print(" ");
+  }
 }
 
 void display(){
@@ -141,46 +236,8 @@ void display(){
   numbers[digitValue[3]](7);
   numbers[digitValue[4]](3);
   numbers[digitValue[5]](0);
-}
 
-void timerInterrupt() {
-  if(!countingEnabled)
-    return;
 
-  decimalValue++;
-  secondsValue = decimalValue > 99 ? secondsValue+1 : secondsValue;
-  minutesValue = secondsValue > 59 ? minutesValue+1 : minutesValue;
-
-  if(decimalValue > 99) decimalValue = 0;
-  if(secondsValue > 59) secondsValue = 0;
-  if (minutesValue > 99) minutesValue = 0;
-
-  // if(!startEnabled)
-  //   countingEnabled = (PINC & (1 << PINC5));
-}
-
-void initTimer(){
-  if(!countingEnabled && startEnabled){
-    minutesValue = secondsValue = decimalValue = 0;
-    countingEnabled = true;
-    startEnabled = false;
-
-    updateStateInDisplay(false);
-  }
-}
-
-void stopTimer(){
-  countingEnabled = false;
-}
-
-void updateStateInDisplay(bool isEnabled){
-  if (isEnabled){
-    lcd.setCursor(14, 0);
-    lcd.print("#");
-  }else{
-    lcd.setCursor(14, 0);
-    lcd.print("  ");
-  }
 }
 
 void number0(int col){

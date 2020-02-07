@@ -7,17 +7,20 @@
 #define PIN_SENSOR 3
 #define PIN_LED_STATUS 2
 
-bool sent = false;
+#define SENSOR_ACTIVATED 1
+#define SENSOR_DISABLED 0
+
+#define DATA_TO_SEND 9
+
+bool dataSent = false;
 
 WiFiClient client;
 
 void setup() {
 
-  Serial.begin(115200);
-
-  pinMode(PIN_SENSOR, INPUT_PULLUP);
+  pinMode(PIN_SENSOR, INPUT);
   pinMode(PIN_LED_STATUS, OUTPUT);
-  digitalWrite(PIN_LED_STATUS, 0);
+  digitalWrite(PIN_LED_STATUS, LOW);
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(SSID, PASSWORD);
@@ -28,20 +31,20 @@ void setup() {
 void loop() {
 
   if(!client.connect(WiFi.gatewayIP(), SERVER_PORT)){
-    digitalWrite(PIN_LED_STATUS, 0);
+    digitalWrite(PIN_LED_STATUS, LOW);
     return;
   }
-  digitalWrite(PIN_LED_STATUS, 1);
+  digitalWrite(PIN_LED_STATUS, HIGH);
 
-  if(!digitalRead(PIN_SENSOR) && !sent){
-    client.print(9);
+  if(digitalRead(PIN_SENSOR) == SENSOR_ACTIVATED && !dataSent){
+    client.print(DATA_TO_SEND);
     client.stop();
 
-    sent = true;
+    dataSent = true;
   }
 
-  if(digitalRead(PIN_SENSOR) && sent)
-    sent = false;
+  if(digitalRead(PIN_SENSOR) == SENSOR_DISABLED && dataSent)
+    dataSent = false;
 }
 
 
@@ -51,5 +54,5 @@ void waitConnection(){
       digitalWrite(PIN_LED_STATUS, !digitalRead(PIN_LED_STATUS));
   }
 
-  digitalWrite(PIN_LED_STATUS, 1);
+  digitalWrite(PIN_LED_STATUS, HIGH);
 }
