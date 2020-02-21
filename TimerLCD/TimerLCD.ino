@@ -3,24 +3,24 @@
 #include <PinChangeInterrupt.h>
 
 //----------- HARDWARE MAP
-#define PIN_RESET 2
-#define PIN_INIT_TIMER 19 //A5 <- ESP8266
+#define PIN_RESET 5
+#define PIN_INIT_TIMER 19 //A5
 
-#define PIN_US_TRIGGER 5
+#define PIN_US_TRIGGER 4
 #define PORTREG_US_TRIGGER PORTD
-#define BIT_US_TRIGGER PORTD5
+#define BIT_US_TRIGGER PORTD4
 
 #define PIN_US_ECHO 3
 #define PINREG_US_ECHO PIND
 #define BIT_US_ECHO PIND3
 
 #define LCD_RW    "GND"
-#define LCD_RS    12
-#define LCD_EN    14 //A0
-#define LCD_D4    15 //A1
-#define LCD_D5    16 //A2
-#define LCD_D6    18 //A4
-#define LCD_D7    17 //A3
+#define LCD_RS    8
+#define LCD_EN    9
+#define LCD_D4    10
+#define LCD_D5    11
+#define LCD_D6    12
+#define LCD_D7    13
 
 #define INCREMENT 0.01f
 
@@ -72,7 +72,7 @@ volatile bool countingEnabled = false;
 volatile bool startEnabled = false;
 
 //----------- Ultrasonic variables
-const uint8_t DISTANCE_THRESHOLD = 150;
+const uint8_t DISTANCE_THRESHOLD = 80;
 volatile unsigned long ultrasonicStartTime;
 volatile unsigned long ultrasonicDistance;
 volatile bool triggerEnabled = true;
@@ -82,8 +82,9 @@ volatile uint8_t timerPrescaler = 0;
 
 void setup() {
 
+  // Serial.begin(9600);
+
   // --- Initializes pins
-  pinMode(8, INPUT);  // Gambiarra para resolver problema da placa
   pinMode(PIN_RESET, INPUT_PULLUP);
   pinMode(PIN_INIT_TIMER, INPUT);
 
@@ -91,7 +92,7 @@ void setup() {
   digitalWrite(PIN_US_TRIGGER, LOW);
   pinMode(PIN_US_ECHO, INPUT);
 
-  attachPinChangeInterrupt(digitalPinToPinChangeInterrupt(PIN_INIT_TIMER), initTimer, FALLING);
+  attachPinChangeInterrupt(digitalPinToPinChangeInterrupt(PIN_INIT_TIMER), initTimer, RISING);
   attachInterrupt(digitalPinToInterrupt(PIN_US_ECHO), readUltrasonic, CHANGE);
 
   // --- LCD Initialize
@@ -128,6 +129,7 @@ void setup() {
   TCCR2B = 0x07;    // Prescaler 1:1024
   TCNT2 = 61;       // 12480us of overflow -> (256 - TCNT2) * Presc * 62.5E-9
   TIMSK2 = 0x01;    // Enables interruption of Timer2
+
 }
 
 
@@ -140,8 +142,11 @@ void loop() {
     countingEnabled = false;
   }
 
+  // Serial.println(ultrasonicDistance);
+
   display();
   updateStateInDisplay(startEnabled);
+
 }
 
 
@@ -198,7 +203,10 @@ void readUltrasonic(){
   if (bitRead(PINREG_US_ECHO, BIT_US_ECHO)){
     ultrasonicStartTime = now;
   }else{
-    ultrasonicDistance = (now - ultrasonicStartTime) / 58.309;
+    ultrasonicDistance = (now - ultrasonicStartTime) / 58;
+    // ultrasonicDistance = constrain(ultrasonicDistance, 0, 200);
+    
+    // Serial.println(ultrasonicDistance);
 
     if (ultrasonicDistance <= DISTANCE_THRESHOLD && countingEnabled)
       stopTimer();

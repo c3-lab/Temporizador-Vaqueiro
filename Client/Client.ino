@@ -10,9 +10,12 @@
 #define SENSOR_ACTIVATED 1
 #define SENSOR_DISABLED 0
 
-#define DATA_TO_SEND 9
+#define SEND_SENSOR_ACTIVATED 9
+#define SEND_CONECTION_STATUS 1
 
 bool dataSent = false;
+
+unsigned long lastTime;
 
 WiFiClient client;
 
@@ -26,18 +29,20 @@ void setup() {
   WiFi.begin(SSID, PASSWORD);
 
   waitConnection();
+
 }
 
 void loop() {
 
   if(!client.connect(WiFi.gatewayIP(), SERVER_PORT)){
-    digitalWrite(PIN_LED_STATUS, LOW);
+    blinkLed(500, 2000);
     return;
   }
-  digitalWrite(PIN_LED_STATUS, HIGH);
+  digitalWrite(PIN_LED_STATUS, LOW);
+
 
   if(digitalRead(PIN_SENSOR) == SENSOR_ACTIVATED && !dataSent){
-    client.print(DATA_TO_SEND);
+    client.print(SEND_SENSOR_ACTIVATED);
     client.stop();
 
     dataSent = true;
@@ -45,14 +50,38 @@ void loop() {
 
   if(digitalRead(PIN_SENSOR) == SENSOR_DISABLED && dataSent)
     dataSent = false;
+
+
+  // if(millis() - lastTime >= 2000){
+  //   client.print(SEND_CONECTION_STATUS);
+  //   client.stop();
+
+  //   lastTime = millis();
+  // }
 }
 
 
 void waitConnection(){
   while (WiFi.status() != WL_CONNECTED) {
-      delay(500);
-      digitalWrite(PIN_LED_STATUS, !digitalRead(PIN_LED_STATUS));
+    delay(50);
+    blinkLed(500, 2000);
   }
 
   digitalWrite(PIN_LED_STATUS, HIGH);
+}
+
+void blinkLed(int timeOn, int timeOff){
+  static unsigned long lastTimeBlink = 0;
+  static int blinkInterval;
+  static bool ledStatusState;
+
+  if(millis() - lastTimeBlink > blinkInterval){
+    ledStatusState = !ledStatusState;
+
+    blinkInterval = ledStatusState ? timeOn : timeOff;
+
+    digitalWrite(PIN_LED_STATUS, ledStatusState);
+
+    lastTimeBlink = millis();
+  }
 }

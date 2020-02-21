@@ -20,6 +20,8 @@ volatile bool detectedObject = false;
 
 void setup() {
 
+  // Serial.begin(9600);
+
   // --- Initializes pins
   pinMode(PIN_INIT_TIMER, OUTPUT);
   digitalWrite(PIN_INIT_TIMER, LOW);
@@ -39,6 +41,8 @@ void setup() {
 
 
 void loop() {
+
+  // Serial.println(ultrasonicDistance);
 
   if(detectedObject){
     bitSet(PORTREG_INIT_TIMER, BIT_INIT_TIMER);
@@ -71,6 +75,7 @@ void readUltrasonic(){
     ultrasonicStartTime = now;
   }else{
     ultrasonicDistance = (now - ultrasonicStartTime) / 58.309;
+    ultrasonicDistance = constrain(ultrasonicDistance, 0, 300);
 
     if (ultrasonicDistance <= DISTANCE_THRESHOLD)
       detectedObject = true;
