@@ -12,12 +12,12 @@
 #define PIN_NRF_CE 9
 #define PIN_NRF_CSN 10
 
-#define PIN_INFRA_SENSOR 2	
+#define PIN_INFRA_SENSOR 2
 
 // ==== Macros
-#define DEBUG(result, trueText, falseText) Serial.println(result ? trueText : falseText) 
 #define LOG Serial.print
 #define LOGln Serial.println
+#define DEBUG(result, trueText, falseText) LOGln(result ? trueText : falseText) 
 
 // ==== Instances
 RF24 radio(PIN_NRF_CE, PIN_NRF_CSN);

@@ -30,9 +30,9 @@
 
 
 // ==== Macros
-#define DEBUG(result, trueText, falseText) Serial.println(result ? trueText : falseText) 
 #define LOG Serial.print
 #define LOGln Serial.println
+#define DEBUG(result, trueText, falseText) LOGln(result ? trueText : falseText) 
 
 // ==== LCD Definitions
 #define CUSTOM_A (byte) 0
