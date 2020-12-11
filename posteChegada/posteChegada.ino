@@ -20,6 +20,8 @@
 
 #define PIN_RESET_BUTTON 7
 
+#define PIN_LED_DEBUG 4
+
 #define LCD_RW    "GND"
 #define LCD_RS    A0
 #define LCD_EN    A1
@@ -94,6 +96,7 @@ void setup() {
 	// ---- Config Pins
 	pinMode(PIN_RESET_BUTTON, INPUT_PULLUP);
 	pinMode(PIN_INFRA_SENSOR, INPUT);
+	pinMode(PIN_LED_DEBUG, OUTPUT);
 	attachInterrupt(digitalPinToInterrupt(PIN_INFRA_SENSOR), stopTimer, RISING);
 
 	// ---- Config NRF24
@@ -165,7 +168,7 @@ void loop() {
 
 	// ---- Update data on the LCD
 	display();
-	updateStateInDisplay(startEnabled);
+	updatesCounterState(startEnabled);
 }
 
 // ============================================
@@ -191,14 +194,8 @@ void timerInterrupt() {
 
 // ============================================
 
-void updateStateInDisplay(bool isEnabled){
-  if (isEnabled){
-    lcd.setCursor(15, 0);
-    lcd.print("\"");
-  }else{
-    lcd.setCursor(15, 0);
-    lcd.print(" ");
-  }
+void updatesCounterState(bool isEnabled){
+  digitalWrite(PIN_LED_DEBUG, isEnabled);
 }
 
 // ============================================
@@ -334,4 +331,3 @@ void number9(int col){
   lcd.print(' ');
   lcd.write(CUSTOM_D);
 }
-

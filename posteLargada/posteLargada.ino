@@ -14,10 +14,12 @@
 
 #define PIN_INFRA_SENSOR 2
 
+#define PIN_LED_DEBUG 4
+
 // ==== Macros
 #define LOG Serial.print
 #define LOGln Serial.println
-#define DEBUG(result, trueText, falseText) LOGln(result ? trueText : falseText) 
+#define DEBUG(result, trueText, falseText) LOGln(result ? trueText : falseText)
 
 // ==== Instances
 RF24 radio(PIN_NRF_CE, PIN_NRF_CSN);
@@ -29,12 +31,16 @@ const byte address[6] = "c3lab";
 volatile bool flagDetectedObject = false;
 const uint8_t sensorActivated = 43;	// any number
 
+volatile int ledCounterTime = 0;
+#define LED_DEBUG_TIME 10000
+
 // ============================================
 void setup() {
 	Serial.begin(115200);
 
 	// ---- Config Pins
 	pinMode(PIN_INFRA_SENSOR, INPUT);
+	pinMode(PIN_LED_DEBUG, OUTPUT);
 	attachInterrupt(digitalPinToInterrupt(PIN_INFRA_SENSOR), detectedObject, RISING);
 
 	// ---- Config NRF24
@@ -53,6 +59,7 @@ void setup() {
 void loop() {
 	if(flagDetectedObject){
 		LOGln("Object was detected!");
+
 		bool sendingSuccess = false;
 		do{
 			sendingSuccess = radio.write(&sensorActivated, sizeof(uint8_t));
@@ -62,10 +69,24 @@ void loop() {
 
 		flagDetectedObject = false;
 	}
+
+	updatesLedDebug();
 }
 
 // ============================================
 
 void detectedObject(){
 	flagDetectedObject = true;
+
+	ledCounterTime = LED_DEBUG_TIME;
+	setLedState(HIGH);
+}
+
+void updatesLedDebug(){
+	if(ledCounterTime > 0)	ledCounterTime--;
+	else					setLedState(LOW);
+}
+
+void setLedState(bool state){
+	digitalWrite(PIN_LED_DEBUG, state);
 }
