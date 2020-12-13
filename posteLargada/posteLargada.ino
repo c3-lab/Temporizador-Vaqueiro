@@ -31,8 +31,8 @@ const byte address[6] = "c3lab";
 volatile bool flagDetectedObject = false;
 const uint8_t sensorActivated = 43;	// any number
 
-volatile int ledCounterTime = 0;
-#define LED_DEBUG_TIME 10000
+int ledCounterTime = 0;
+const int LED_DEBUG_TIME = 1000;
 
 // ============================================
 void setup() {
@@ -60,6 +60,9 @@ void loop() {
 	if(flagDetectedObject){
 		LOGln("Object was detected!");
 
+		ledCounterTime = LED_DEBUG_TIME;
+		setLedState(HIGH);
+
 		bool sendingSuccess = false;
 		do{
 			sendingSuccess = radio.write(&sensorActivated, sizeof(uint8_t));
@@ -70,6 +73,7 @@ void loop() {
 		flagDetectedObject = false;
 	}
 
+	delay(1);
 	updatesLedDebug();
 }
 
@@ -77,13 +81,10 @@ void loop() {
 
 void detectedObject(){
 	flagDetectedObject = true;
-
-	ledCounterTime = LED_DEBUG_TIME;
-	setLedState(HIGH);
 }
 
 void updatesLedDebug(){
-	if(ledCounterTime > 0)	ledCounterTime--;
+	if(ledCounterTime > 1)	ledCounterTime--;
 	else					setLedState(LOW);
 }
 
